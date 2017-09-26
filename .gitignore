@@ -1,2 +1,3 @@
 *.swp
-kafka-node/server.*.properties
+kafka-node/broker-properties/*
+kafka-node/start.sh
