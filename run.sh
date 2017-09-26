@@ -36,18 +36,17 @@ echo 'Running docker containers...'
 for i in `seq 1 $BROKERS`; do
   cat kafka-node/server.properties | \
     sed "s/broker.id=0/broker.id=$i/" | \
+    sed "s/9092/909$i/" | \
     sed "s/172.39.39.11/$NODE_IP_PREFIX$i/" > \
     "kafka-node/server.$i.properties"
-    # sed "s/9092/909$i/" | \
   echo "Kafka node container ID: $( \
     docker run -dit \
       --name "$NODE_NAME-$i" \
       --net "$NETWORK_NAME" \
       --ip "$NODE_IP_PREFIX$i" \
       -v "$(pwd)/kafka-node/server.$i.properties:/usr/share/kafka_2.11-0.11.0.1/config/server.properties" \
-      -p "9092:9092" \
+      -p "909$i:909$i" \
       "$NODE_CONTAINER_ID")"
-      # -p "909$i:909$i" \
 done
 echo "Zookeeper container ID: $( \
   docker run -dit \
