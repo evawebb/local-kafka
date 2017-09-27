@@ -8,7 +8,9 @@ NODE_IP='172.39.39.2'
 ZK_IP='172.39.39.200'
 
 echo 'Deleting existing docker containers...'
-docker rm -f "$NODE_NAME"
+for i in `seq 1 $BROKERS`; do
+  docker rm -f "$NODE_NAME-$i"
+done
 docker rm -f "$ZK_NAME"
 echo 'Deleting existing docker network...'
 docker network rm "$NETWORK_NAME"
@@ -30,17 +32,11 @@ echo "Network ID: $( \
     --subnet "$NETWORK_IP_RANGE" \
     "$NETWORK_NAME")"
 
-KAFKA_NODE_ARGS=(
-  --name "$NODE_NAME"
-  --net "$NETWORK_NAME"
-  --ip "$NODE_IP"
-  -v "$(pwd)/kafka-node/broker-properties:/usr/share/kafka_2.11-0.11.0.1/config/broker-properties" \
-  -v "$(pwd)/kafka-node/start.sh:/home/start.sh" \
-)
 BROKER_LIST=''
 
+echo 'Running docker containers...'
 mkdir kafka-node/broker-properties
-echo '' > kafka-node/start.sh
+mkdir kafka-node/start-scripts
 for i in `seq 1 $BROKERS`; do
   cat kafka-node/server.properties | \
     sed "s/broker.id=0/broker.id=$i/" | \
@@ -48,18 +44,30 @@ for i in `seq 1 $BROKERS`; do
     sed "s/kafka-logs/kafka-logs-$i/" | \
     sed "s/172.39.39.11/$NODE_IP/" > \
     "kafka-node/broker-properties/server.$i.properties"
-  echo "/usr/share/kafka_2.11-0.11.0.1/bin/kafka-server-start.sh /usr/share/kafka_2.11-0.11.0.1/config/broker-properties/server.$i.properties &" >> kafka-node/start.sh
-  KAFKA_NODE_ARGS+=(-p "909$i:909$i")
+
+  START_SCRIPT=''
+  for j in `seq 1 $BROKERS`; do
+    if [ "$i" != "$j" ]; then
+      START_SCRIPT="$START_SCRIPT\nwhile sleep 1; do socat TCP4-listen:909$j TCP4:$NODE_IP$j:909$j; done &"
+    fi
+  done
+  START_SCRIPT="$START_SCRIPT\n/usr/share/kafka_2.11-0.11.0.1/bin/kafka-server-start.sh /usr/share/kafka_2.11-0.11.0.1/config/server.properties"
+  echo -e "$START_SCRIPT" > "kafka-node/start-scripts/start-$i.sh"
+  chmod 755 "kafka-node/start-scripts/start-$i.sh"
+
+  echo "Kafka node container ID: $( \
+    docker run -dit \
+      --name "$NODE_NAME-$i" \
+      --net "$NETWORK_NAME" \
+      --ip "$NODE_IP$i" \
+      -v "$(pwd)/kafka-node/start-scripts/start-$i.sh:/start.sh" \
+      -v "$(pwd)/kafka-node/broker-properties/server.$i.properties:/usr/share/kafka_2.11-0.11.0.1/config/server.properties" \
+      -p "909$i:909$i" \
+      "$NODE_CONTAINER_ID")"
+
   BROKER_LIST="$BROKER_LIST,localhost:909$i"
 done
-truncate -s '-2' kafka-node/start.sh
-sudo chmod 755 kafka-node/start.sh
 
-echo 'Running docker containers...'
-echo "Kafka node container ID: $( \
-  docker run -dit \
-    "${KAFKA_NODE_ARGS[@]}" \
-    "$NODE_CONTAINER_ID")"
 echo "Zookeeper container ID: $( \
   docker run -dit \
   --name "$ZK_NAME" \
