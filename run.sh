@@ -43,6 +43,7 @@ echo "Zookeeper container ID: $( \
   -p 2181:2181 \
   "$ZK_CONTAINER_ID")"
 
+echo 'Waiting for a bit so Zookeeper can start up...'
 sleep 10
 
 mkdir kafka-node/broker-properties
