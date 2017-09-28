@@ -8,10 +8,9 @@ NODE_IP='172.39.39.2'
 ZK_IP='172.39.39.200'
 
 echo 'Deleting existing docker containers...'
-for i in `seq 1 $BROKERS`; do
-  docker rm -f "$NODE_NAME-$i"
-done
+docker rm -f $(docker ps -aq --filter "name=$NODE_NAME")
 docker rm -f "$ZK_NAME"
+
 echo 'Deleting existing docker network...'
 docker network rm "$NETWORK_NAME"
 
@@ -35,6 +34,17 @@ echo "Network ID: $( \
 BROKER_LIST=''
 
 echo 'Running docker containers...'
+
+echo "Zookeeper container ID: $( \
+  docker run -dit \
+  --name "$ZK_NAME" \
+  --net "$NETWORK_NAME" \
+  --ip "$ZK_IP" \
+  -p 2181:2181 \
+  "$ZK_CONTAINER_ID")"
+
+sleep 10
+
 mkdir kafka-node/broker-properties
 mkdir kafka-node/start-scripts
 for i in `seq 1 $BROKERS`; do
@@ -48,10 +58,11 @@ for i in `seq 1 $BROKERS`; do
   START_SCRIPT=''
   for j in `seq 1 $BROKERS`; do
     if [ "$i" != "$j" ]; then
-      START_SCRIPT="$START_SCRIPT\nwhile sleep 1; do socat TCP4-listen:909$j TCP4:$NODE_IP$j:909$j; done &"
+      START_SCRIPT="$START_SCRIPT\nwhile sleep 1; do socat -d -d -d -d -lf /var/log/socat.log TCP4-listen:909$j TCP4:$NODE_IP$j:909$j; done &"
     fi
   done
-  START_SCRIPT="$START_SCRIPT\n/usr/share/kafka_2.11-0.11.0.1/bin/kafka-server-start.sh /usr/share/kafka_2.11-0.11.0.1/config/server.properties"
+  START_SCRIPT="$START_SCRIPT\n/usr/share/kafka_2.11-0.11.0.1/bin/kafka-server-start.sh /usr/share/kafka_2.11-0.11.0.1/config/server.properties &"
+  START_SCRIPT="$START_SCRIPT\ntail -f /dev/null"
   echo -e "$START_SCRIPT" > "kafka-node/start-scripts/start-$i.sh"
   chmod 755 "kafka-node/start-scripts/start-$i.sh"
 
@@ -68,11 +79,4 @@ for i in `seq 1 $BROKERS`; do
   BROKER_LIST="$BROKER_LIST,localhost:909$i"
 done
 
-echo "Zookeeper container ID: $( \
-  docker run -dit \
-  --name "$ZK_NAME" \
-  --net "$NETWORK_NAME" \
-  --ip "$ZK_IP" \
-  -p 2181:2181 \
-  "$ZK_CONTAINER_ID")"
 echo "Broker list: ${BROKER_LIST:1}"
