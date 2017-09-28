@@ -1,5 +1,5 @@
 NETWORK_NAME='local-kafka-net'
-NODE_NAME='local-kafka-node'
+NODE_NAME='local-kafka-broker'
 ZK_NAME='local-kafka-zk'
 NETWORK_IP_RANGE='172.39.39.0/24'
 NODE_IP='172.39.39.2'
