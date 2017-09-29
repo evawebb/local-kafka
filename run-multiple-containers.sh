@@ -1,9 +1,9 @@
 NETWORK_NAME='local-kafka-net'
 NODE_NAME='local-kafka-broker'
 ZK_NAME='local-kafka-zk'
-NETWORK_IP_RANGE='172.39.39.0/24'
-NODE_IP='172.39.39.2'
-ZK_IP='172.39.39.200'
+NETWORK_IP_RANGE='172.16.39.0/24'
+NODE_IP='172.16.39.2'
+ZK_IP='172.16.39.200'
 
 BROKERS=${1:-3}
 if [ "$BROKERS" -gt 9 ]; then
@@ -57,7 +57,7 @@ for i in `seq 1 $BROKERS`; do
     sed "s/broker.id=0/broker.id=$i/" | \
     sed "s/9092/909$i/" | \
     sed "s/kafka-logs/kafka-logs-$i/" | \
-    sed "s/172.39.39.11/$NODE_IP/" > \
+    sed "s/172.16.39.11/$NODE_IP/" > \
     "kafka-node/broker-properties/server.$i.properties"
 
   START_SCRIPT=''
